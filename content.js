@@ -337,6 +337,7 @@ function observeStopButton() {
 }
 
 async function waitForInitializeButton() {
+  if (!chrome.runtime?.id) return; // Extension context invalidated
   const { initializeButton } = await import(
     chrome.runtime.getURL("buttonWidget.js")
   );
