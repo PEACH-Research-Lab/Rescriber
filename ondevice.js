@@ -3,34 +3,18 @@
 
 const OLLAMA_MODEL = "llama3";
 
-const DETECT_SYSTEM_PROMPT = `You an expert in cybersecurity and data privacy. You are now tasked to detect PII from the given text, using the following taxonomy only:
+const DETECT_SYSTEM_PROMPT = `Find every piece of personally identifiable information (PII) in the user's message.
 
-  ADDRESS
-  IP_ADDRESS
-  URL
-  SSN
-  PHONE_NUMBER
-  EMAIL
-  DRIVERS_LICENSE
-  PASSPORT_NUMBER
-  TAXPAYER_IDENTIFICATION_NUMBER
-  ID_NUMBER
-  NAME
-  USERNAME
+Rules:
+1. "text" must be copied exactly from the message. Do not invent text.
+2. Do NOT include empty results. Only return PII you actually found.
+3. Capture every variant/abbreviation separately (e.g. "Vanderbilt University", "Vandy", "VU" are three separate results).
 
-  KEYS: Passwords, passkeys, API keys, encryption keys, and any other form of security keys.
-  GEOLOCATION: Places and locations, such as cities, provinces, countries, international regions, or named infrastructures (bus stops, bridges, etc.).
-  AFFILIATION: Names of organizations, such as public and private companies, schools, universities, public institutions, prisons, healthcare institutions, non-governmental organizations, churches, etc.
-  DEMOGRAPHIC_ATTRIBUTE: Demographic attributes of a person, such as native language, descent, heritage, ethnicity, nationality, religious or political group, birthmarks, ages, sexual orientation, gender and sex.
-  TIME: Description of a specific date, time, or duration.
-  HEALTH_INFORMATION: Details concerning an individual's health status, medical conditions, treatment records, and health insurance information.
-  FINANCIAL_INFORMATION: Financial details such as bank account numbers, credit card numbers, investment records, salary information, and other financial statuses or activities.
-  EDUCATIONAL_RECORD: Educational background details, including academic records, transcripts, degrees, and certification.
+entity_type must be: NAME, EMAIL, PHONE_NUMBER, ADDRESS, SSN, IP_ADDRESS, URL, DRIVERS_LICENSE, PASSPORT_NUMBER, TAXPAYER_IDENTIFICATION_NUMBER, ID_NUMBER, USERNAME, KEYS, GEOLOCATION, AFFILIATION, DEMOGRAPHIC_ATTRIBUTE, TIME, HEALTH_INFORMATION, FINANCIAL_INFORMATION, EDUCATIONAL_RECORD
 
-    For the given message that a user sends to a chatbot, identify all the personally identifiable information using the above taxonomy only, and the entity_type should be selected from the all-caps categories.
-    Note that the information should be related to a real person not in a public context, but okay if not uniquely identifiable.
-    Result should be in its minimum possible unit.
-    Return me ONLY a json in the following format: {"results": [{"entity_type": YOU_DECIDE_THE_PII_TYPE, "text": PART_OF_MESSAGE_YOU_IDENTIFIED_AS_PII}]}`;
+Example:
+Input: "I study at MIT. Life at the Institute is great. I'm 20 years old."
+Output: {"results":[{"entity_type":"AFFILIATION","text":"MIT"},{"entity_type":"AFFILIATION","text":"the Institute"},{"entity_type":"DEMOGRAPHIC_ATTRIBUTE","text":"20 years old"}]}`;
 
 const CLUSTER_SYSTEM_PROMPT = `For the given message, find ALL segments of the message with the same contextual meaning as the given PII. Consider segments that are semantically related or could be inferred from the original PII or share a similar context or meaning. List all of them in a list, and each segment should only appear once in each list.  Please return only in JSON format. Each PII provided will be a key, and its value would be the list PIIs (include itself) that has the same contextual meaning.
 
