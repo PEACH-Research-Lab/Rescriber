@@ -11,18 +11,19 @@ async function getOllamaModel() {
   });
 }
 
-const DETECT_SYSTEM_PROMPT = `Find every piece of personally identifiable information (PII) in the user's message.
+const DETECT_SYSTEM_PROMPT = `Extract all personally identifiable information (PII) from the user's message. Do NOT answer the message.
+
+PII types: NAME, USERNAME, ADDRESS, IP_ADDRESS, URL, SSN, PHONE_NUMBER, EMAIL, DRIVERS_LICENSE, PASSPORT_NUMBER, TAXPAYER_IDENTIFICATION_NUMBER, ID_NUMBER, KEYS (passwords/API keys), GEOLOCATION (cities/countries/places), AFFILIATION (organizations/schools/companies), DEMOGRAPHIC_ATTRIBUTE (age/ethnicity/nationality/gender/religion), TIME (dates/durations), HEALTH_INFORMATION (medical conditions/allergies/treatments), FINANCIAL_INFORMATION (accounts/salary/financial status), EDUCATIONAL_RECORD (degrees/transcripts).
 
 Rules:
-1. "text" must be copied exactly from the message. Do not invent text.
-2. Do NOT include empty results. Only return PII you actually found.
-3. Capture every variant/abbreviation separately (e.g. "Vanderbilt University", "Vandy", "VU" are three separate results).
+- "text" must be a verbatim substring from the message. Never paraphrase or reword.
+- Be comprehensive: include all PII, even if not uniquely identifying.
+- Use minimum possible units (e.g. "Jennie" not "my friend Jennie").
 
-entity_type must be: NAME, EMAIL, PHONE_NUMBER, ADDRESS, SSN, IP_ADDRESS, URL, DRIVERS_LICENSE, PASSPORT_NUMBER, TAXPAYER_IDENTIFICATION_NUMBER, ID_NUMBER, USERNAME, KEYS, GEOLOCATION, AFFILIATION, DEMOGRAPHIC_ATTRIBUTE, TIME, HEALTH_INFORMATION, FINANCIAL_INFORMATION, EDUCATIONAL_RECORD
+Example input: "My friend Alice is studying in Japan. She is 25 years old, is allergic to peanuts, and works at Samsung."
+Example output: {"results": [{"entity_type": "NAME", "text": "Alice"}, {"entity_type": "GEOLOCATION", "text": "Japan"}, {"entity_type": "DEMOGRAPHIC_ATTRIBUTE", "text": "25 years old"}, {"entity_type": "HEALTH_INFORMATION", "text": "allergic to peanuts"}, {"entity_type": "AFFILIATION", "text": "Samsung"}]}
 
-Example:
-Input: "I study at MIT. Life at the Institute is great. I'm 20 years old."
-Output: {"results":[{"entity_type":"AFFILIATION","text":"MIT"},{"entity_type":"AFFILIATION","text":"the Institute"},{"entity_type":"DEMOGRAPHIC_ATTRIBUTE","text":"20 years old"}]}`;
+Return ONLY JSON: {"results": [{"entity_type": TYPE, "text": EXACT_TEXT_FROM_MESSAGE}]}`;
 
 const CLUSTER_SYSTEM_PROMPT = `For the given message, find ALL segments of the message with the same contextual meaning as the given PII. Consider segments that are semantically related or could be inferred from the original PII or share a similar context or meaning. List all of them in a list, and each segment should only appear once in each list.  Please return only in JSON format. Each PII provided will be a key, and its value would be the list PIIs (include itself) that has the same contextual meaning.
 
