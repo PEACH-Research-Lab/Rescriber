@@ -41,11 +41,32 @@
 
     <hr style="margin: 20px 0" />
 
-    <h2>On-Device Model</h2>
+    <h2>Detection Mode</h2>
     <label class="input-field">
-      Ollama model name:
-      <input type="text" id="ollamaModel" class="input-field" placeholder="llama3" />
+      <input type="radio" name="detectionMode" value="ondevice" checked /> On-Device LLM (Ollama)
     </label>
+    <label class="input-field">
+      <input type="radio" name="detectionMode" value="cloud" /> Cloud LLM (OpenAI)
+    </label>
+    <label class="input-field">
+      <input type="radio" name="detectionMode" value="presidio" /> Presidio (no LLM)
+    </label>
+
+    <div id="ollamaSection">
+      <h3>Ollama Settings</h3>
+      <label class="input-field">
+        Model name:
+        <input type="text" id="ollamaModel" class="input-field" placeholder="llama3" />
+      </label>
+    </div>
+
+    <div id="presidioSection" style="display:none">
+      <h3>Presidio Settings</h3>
+      <p style="font-size: 0.9em; color: #666;">
+        Requires the Presidio server running locally.<br/>
+        Run: <code>python presidio_server.py</code> (port 5002)
+      </p>
+    </div>
 
     <button id="saveButton" class="save-button">Save</button>
 

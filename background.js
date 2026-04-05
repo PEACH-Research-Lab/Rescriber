@@ -94,8 +94,38 @@ chrome.runtime.onConnect.addListener((port) => {
   });
 });
 
+// --- Presidio proxy ---
+const PRESIDIO_BASE = "http://localhost:5002";
+
 // --- Non-streaming via messages (kept for simple calls) ---
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === "presidio") {
+    const t0 = performance.now();
+    const url = `${PRESIDIO_BASE}${request.endpoint}`;
+    console.log(`[Presidio] ➜ ${request.endpoint}`);
+
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request.payload),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`Presidio ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        const ms = (performance.now() - t0).toFixed(0);
+        console.log(`[Presidio] ✓ (${ms}ms): ${data.results?.length || 0} entities`);
+        sendResponse(data);
+      })
+      .catch((err) => {
+        const ms = (performance.now() - t0).toFixed(0);
+        console.error(`[Presidio] ✗ (${ms}ms): ${err.message}`);
+        sendResponse({ error: err.message });
+      });
+    return true;
+  }
+
   if (request.type === "ollama") {
     const t0 = performance.now();
     const model = request.payload?.model || "?";

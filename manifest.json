@@ -26,6 +26,7 @@
       "resources": [
         "openai.js",
         "ondevice.js",
+        "presidio.js",
         "replacePanel.js",
         "ui.css",
         "buttonWidget.js",

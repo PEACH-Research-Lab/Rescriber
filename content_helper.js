@@ -6,6 +6,7 @@ window.helper = {
   previousUserMessage: "",
   previousEntities: [],
   useOnDeviceModel: true,
+  detectionMode: "ondevice", // "ondevice", "cloud", or "presidio"
   showInfoForNew: undefined,
 
   placeholderToPii: {},
@@ -166,6 +167,17 @@ window.helper = {
         resolve(result.enabled !== undefined ? result.enabled : true);
       });
     });
+  },
+
+  loadDetectionMode: async function () {
+    const result = await new Promise((resolve) => {
+      chrome.storage.sync.get(["detectionMode"], (r) => resolve(r));
+    });
+    if (result.detectionMode) {
+      this.detectionMode = result.detectionMode;
+      this.useOnDeviceModel = result.detectionMode === "ondevice";
+    }
+    console.log("Detection mode loaded:", this.detectionMode);
   },
 
   getUserInputElement: function () {
@@ -439,8 +451,13 @@ window.helper = {
 
   getResponseDetect: async function (userMessage) {
     let entities;
-    console.log("Now using on device model: ", this.useOnDeviceModel);
-    if (!this.useOnDeviceModel) {
+    console.log("Detection mode:", this.detectionMode);
+    if (this.detectionMode === "presidio") {
+      const { getPresidioResponseDetect } = await import(
+        chrome.runtime.getURL("presidio.js")
+      );
+      entities = await getPresidioResponseDetect(userMessage);
+    } else if (!this.useOnDeviceModel) {
       const { getCloudResponseDetect } = await import(
         chrome.runtime.getURL("openai.js")
       );
@@ -455,6 +472,10 @@ window.helper = {
   },
 
   getResponseCluster: async function (clusterMessage) {
+    // Presidio mode: skip LLM-based clustering (no semantic clustering without LLM)
+    if (this.detectionMode === "presidio") {
+      return "{}";
+    }
     let clustersResponse;
     if (!this.useOnDeviceModel) {
       const { getCloudResponseCluster } = await import(
@@ -553,10 +574,17 @@ window.helper = {
       await this.updatePIIReplacementPanel(this.currentEntities);
     };
 
-    const { getOnDeviceResponseDetect } = await import(
-      chrome.runtime.getURL("ondevice.js")
-    );
-    await getOnDeviceResponseDetect(userMessage, onResultCallback);
+    if (this.detectionMode === "presidio") {
+      const { getPresidioResponseDetect } = await import(
+        chrome.runtime.getURL("presidio.js")
+      );
+      await getPresidioResponseDetect(userMessage, onResultCallback);
+    } else {
+      const { getOnDeviceResponseDetect } = await import(
+        chrome.runtime.getURL("ondevice.js")
+      );
+      await getOnDeviceResponseDetect(userMessage, onResultCallback);
+    }
 
     if (this.currentEntities.length === 0) {
       return false;
@@ -587,7 +615,7 @@ window.helper = {
     const { createPIIReplacementPanel } = await import(
       chrome.runtime.getURL("replacePanel.js")
     );
-    const modelNumber = window.helper.useOnDeviceModel ? 2 : 1;
+    const modelNumber = window.helper.detectionMode === "presidio" ? 3 : window.helper.useOnDeviceModel ? 2 : 1;
     if (!this.showInfoForNew) {
       await createPIIReplacementPanel(
         detectedEntities,
@@ -968,6 +996,18 @@ window.helper = {
     onResultCallback
   ) {
     let abstractResponse = "";
+    // Presidio mode: no LLM available, use simple placeholder abstraction
+    if (this.detectionMode === "presidio") {
+      const convId = this.getActiveConversationId() || "no-url";
+      const convMappings = this.piiToPlaceholder[convId] || {};
+      const results = abstractList.map((pii) => {
+        const placeholder = convMappings[pii] || "REDACTED";
+        return { protected: pii, abstracted: `[${placeholder}]` };
+      });
+      abstractResponse = results;
+      onResultCallback(results);
+      return abstractResponse;
+    }
     if (!this.useOnDeviceModel) {
       const { getCloudAbstractResponse } = await import(
         chrome.runtime.getURL("openai.js")

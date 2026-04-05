@@ -4,13 +4,16 @@ document.getElementById("saveButton").addEventListener("click", () => {
   ).value;
   const apiKey = document.getElementById("apiKey").value;
   const ollamaModel = document.getElementById("ollamaModel").value.trim() || "llama3";
+  const detectionMode = document.querySelector(
+    'input[name="detectionMode"]:checked'
+  ).value;
 
-  chrome.storage.sync.set({ apiOption, openaiApiKey: apiKey, ollamaModel }, () => {
+  chrome.storage.sync.set({ apiOption, openaiApiKey: apiKey, ollamaModel, detectionMode }, () => {
     alert("Settings saved.");
   });
 });
 
-chrome.storage.sync.get(["apiOption", "openaiApiKey", "ollamaModel"], (result) => {
+chrome.storage.sync.get(["apiOption", "openaiApiKey", "ollamaModel", "detectionMode"], (result) => {
   if (result.apiOption) {
     document.querySelector(
       `input[name="apiOption"][value="${result.apiOption}"]`
@@ -22,6 +25,13 @@ chrome.storage.sync.get(["apiOption", "openaiApiKey", "ollamaModel"], (result) =
   if (result.ollamaModel) {
     document.getElementById("ollamaModel").value = result.ollamaModel;
   }
+  if (result.detectionMode) {
+    const radio = document.querySelector(
+      `input[name="detectionMode"][value="${result.detectionMode}"]`
+    );
+    if (radio) radio.checked = true;
+  }
+  updateSections();
 });
 
 // Disable or enable the API key input based on the selected option
@@ -29,4 +39,15 @@ document.querySelectorAll('input[name="apiOption"]').forEach((radio) => {
   radio.addEventListener("change", () => {
     document.getElementById("apiKey").disabled = radio.value !== "own";
   });
+});
+
+// Show/hide sections based on detection mode
+function updateSections() {
+  const mode = document.querySelector('input[name="detectionMode"]:checked').value;
+  document.getElementById("ollamaSection").style.display = mode === "ondevice" ? "" : "none";
+  document.getElementById("presidioSection").style.display = mode === "presidio" ? "" : "none";
+}
+
+document.querySelectorAll('input[name="detectionMode"]').forEach((radio) => {
+  radio.addEventListener("change", updateSections);
 });
