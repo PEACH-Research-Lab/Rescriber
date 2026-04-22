@@ -1328,6 +1328,25 @@ window.helper = {
       return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     }
 
+    // Pad the shorter string with non-breaking spaces ( ) split evenly on
+    // both sides, so the placeholder and the original PII render at the same
+    // visual width and hover-toggling does not reflow surrounding text.
+    // A non-breaking space is visually narrower than an average glyph, so
+    // multiply the character deficit to better compensate for the width gap.
+    const SPACE_WIDTH_MULTIPLIER = 2;
+    function padToEqualLength(a, b) {
+      const max = Math.max(a.length, b.length);
+      const pad = (s) => {
+        const diff = max - s.length;
+        if (diff <= 0) return s;
+        const total = diff * SPACE_WIDTH_MULTIPLIER;
+        const left = Math.floor(total / 2);
+        const right = total - left;
+        return " ".repeat(left) + s + " ".repeat(right);
+      };
+      return { a: pad(a), b: pad(b) };
+    }
+
     function replaceTextRecursively(node) {
       node.childNodes.forEach((child) => {
         if (child.nodeType === Node.TEXT_NODE) {
@@ -1371,11 +1390,17 @@ window.helper = {
             }
 
             const entry = placeholderLookup[matched];
+            const { a: paddedPii, b: paddedPlaceholder } = padToEqualLength(
+              entry.pii,
+              entry.placeholder
+            );
             const span = document.createElement("span");
             span.className = "highlight-pii-in-displayed-message";
             span.style.backgroundColor = bgColor;
-            span.textContent = entry.pii;
+            span.textContent = paddedPii;
             span.setAttribute("data-placeholder", entry.placeholder);
+            span.setAttribute("data-padded-placeholder", paddedPlaceholder);
+            span.setAttribute("data-padded-pii", paddedPii);
 
             fragment.appendChild(span);
             lastIndex = offset + matched.length;
@@ -1460,11 +1485,19 @@ window.helper = {
           // Build PII entries for overlay matching (reverse lookup: PII value → placeholder)
           const piiEntries = sortedPiiMappings
             .filter(([, pii]) => pii.length > 0)
-            .map(([placeholder, pii]) => ({
-              placeholder,
-              pii,
-              regex: new RegExp(escapeRegExp(pii), "g"),
-            }));
+            .map(([placeholder, pii]) => {
+              const { a: paddedPii, b: paddedPlaceholder } = padToEqualLength(
+                pii,
+                placeholder
+              );
+              return {
+                placeholder,
+                pii,
+                paddedPlaceholder,
+                paddedPii,
+                regex: new RegExp(escapeRegExp(pii), "g"),
+              };
+            });
 
           function buildOverlay() {
             const editorWrapper =
@@ -1533,14 +1566,14 @@ window.helper = {
                       "white-space:pre",
                       "padding:0 1px",
                     ].join(";");
-                    hl.textContent = entry.pii;
+                    hl.textContent = entry.paddedPii;
 
                     hl.addEventListener("mouseenter", () => {
-                      hl.textContent = entry.placeholder;
+                      hl.textContent = entry.paddedPlaceholder;
                       hl.style.backgroundColor = placeholderBgColor;
                     });
                     hl.addEventListener("mouseleave", () => {
-                      hl.textContent = entry.pii;
+                      hl.textContent = entry.paddedPii;
                       hl.style.backgroundColor = bgColor;
                     });
 
@@ -1588,12 +1621,16 @@ window.helper = {
       .forEach((span) => {
         span.setAttribute("data-pii-hover-bound", "true");
         const placeholder = span.getAttribute("data-placeholder");
+        const paddedPlaceholder =
+          span.getAttribute("data-padded-placeholder") || placeholder;
+        const paddedPii =
+          span.getAttribute("data-padded-pii") || piiMappings[placeholder];
         span.addEventListener("mouseenter", () => {
-          span.textContent = placeholder;
+          span.textContent = paddedPlaceholder;
           span.style.backgroundColor = placeholderBgColor;
         });
         span.addEventListener("mouseleave", () => {
-          span.textContent = piiMappings[placeholder];
+          span.textContent = paddedPii;
           span.style.backgroundColor = bgColor;
         });
       });
