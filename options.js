@@ -1,25 +1,17 @@
 document.getElementById("saveButton").addEventListener("click", () => {
-  const apiOption = document.querySelector(
-    'input[name="apiOption"]:checked'
-  ).value;
   const apiKey = document.getElementById("apiKey").value;
   const ollamaModel = document.getElementById("ollamaModel").value.trim() || "llama3";
   const detectionMode = document.querySelector(
     'input[name="detectionMode"]:checked'
   ).value;
 
-  chrome.storage.sync.set({ apiOption, openaiApiKey: apiKey, ollamaModel, detectionMode }, () => {
+  chrome.storage.sync.set({ openaiApiKey: apiKey, ollamaModel, detectionMode }, () => {
     alert("Settings saved.");
   });
 });
 
-chrome.storage.sync.get(["apiOption", "openaiApiKey", "ollamaModel", "detectionMode"], (result) => {
-  if (result.apiOption) {
-    document.querySelector(
-      `input[name="apiOption"][value="${result.apiOption}"]`
-    ).checked = true;
-  }
-  if (result.apiOption === "own" && result.openaiApiKey) {
+chrome.storage.sync.get(["openaiApiKey", "ollamaModel", "detectionMode"], (result) => {
+  if (result.openaiApiKey) {
     document.getElementById("apiKey").value = result.openaiApiKey;
   }
   if (result.ollamaModel) {
@@ -32,13 +24,6 @@ chrome.storage.sync.get(["apiOption", "openaiApiKey", "ollamaModel", "detectionM
     if (radio) radio.checked = true;
   }
   updateSections();
-});
-
-// Disable or enable the API key input based on the selected option
-document.querySelectorAll('input[name="apiOption"]').forEach((radio) => {
-  radio.addEventListener("change", () => {
-    document.getElementById("apiKey").disabled = radio.value !== "own";
-  });
 });
 
 // Show/hide sections based on detection mode

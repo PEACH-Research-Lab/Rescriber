@@ -1,7 +1,6 @@
 async function getApiKey() {
-  // Retrieve the API key from Chrome storage
-  const { apiOption, openaiApiKey } = await new Promise((resolve, reject) => {
-    chrome.storage.sync.get(["apiOption", "openaiApiKey"], (result) => {
+  const { openaiApiKey } = await new Promise((resolve, reject) => {
+    chrome.storage.sync.get(["openaiApiKey"], (result) => {
       if (chrome.runtime.lastError) {
         reject(chrome.runtime.lastError);
       } else {
@@ -10,19 +9,11 @@ async function getApiKey() {
     });
   });
 
-  const { getProvidedApiKey } = await import(
-    chrome.runtime.getURL("getProvidedApiKey.js")
-  );
-  let apiKey = openaiApiKey;
-  if (apiOption === "provided") {
-    apiKey = await getProvidedApiKey();
-  }
-
-  if (!apiKey) {
+  if (!openaiApiKey) {
     console.error("No API key available");
     return [];
   }
-  return apiKey;
+  return openaiApiKey;
 }
 export async function getCloudResponseDetect(userMessageDetect) {
   const url = "https://api.openai.com/v1/chat/completions";
