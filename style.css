@@ -1,6 +1,6 @@
 /* style.css */
 
-.highlight {
+.pii-highlight-tooltip .highlight {
   background-color: yellow;
   color: black;
 }
