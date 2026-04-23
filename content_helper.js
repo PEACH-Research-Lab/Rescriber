@@ -1359,9 +1359,32 @@ window.helper = {
         );
       }
 
+      // Only highlight PII the user actually redacted and sent as a
+      // placeholder — detected-but-never-redacted values stay in
+      // placeholderToPii, but were never "replaced back" on the wire,
+      // so painting over them would falsely imply the user had protected them.
+      const { actionHistory = [] } = await this.getFromStorage([
+        "actionHistory",
+      ]);
+      const redactedPIIs = new Set();
+      for (const entry of actionHistory) {
+        if (
+          entry.conversationId === activeConversationId &&
+          entry.action === "replace" &&
+          entry.piiTexts
+        ) {
+          entry.piiTexts.forEach((t) => redactedPIIs.add(t));
+        }
+      }
+      const highlightMappings = Object.fromEntries(
+        Object.entries(placeholderToPii).filter(([, pii]) =>
+          redactedPIIs.has(pii)
+        )
+      );
+
       // Update current entities by using the mappings from cloud
       this.updateCurrentEntitiesByPIIMappings(piiToPlaceholder);
-      this.replaceTextInElement(element, placeholderToPii);
+      this.replaceTextInElement(element, highlightMappings);
     } catch (error) {
       console.error("Error fetching PII mappings:", error);
     }
