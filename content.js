@@ -178,6 +178,8 @@ function removeTooltipAndPanel() {
   if (panel) {
     panel.remove();
   }
+
+  window.helper.clearInlinePIIHighlights();
 }
 
 const conversationChangeInterval = setInterval(async () => {

@@ -5,6 +5,15 @@
   color: black;
 }
 
+/* Inline highlighting painted onto the composer via the CSS Custom
+   Highlight API. Paint-only: no DOM changes, so ProseMirror's model and the
+   caret/IME stay intact. The per-entity tooltip still drives hover detail. */
+::highlight(pii) {
+  background-color: rgba(255, 221, 51, 0.55);
+  text-decoration: underline wavy rgba(200, 120, 0, 0.9);
+  text-underline-offset: 3px;
+}
+
 .pii-highlight-tooltip {
   color: black;
   position: absolute;

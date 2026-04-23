@@ -728,11 +728,116 @@ window.helper = {
     const input = this.getUserInputElement();
     const prev = this.getPreviousStateForActiveConversation();
     if (input && prev) {
+      this.clearInlinePIIHighlights();
       input.innerText = prev.userMessage;
       this.currentUserMessage = prev.userMessage;
       this.currentEntities = [...prev.entities];
       await this.updatePIIReplacementPanel(this.currentEntities);
+      requestAnimationFrame(() =>
+        this.paintInlinePIIHighlights(this.currentEntities)
+      );
     }
+  },
+
+  // Paint PII highlights directly on the composer using the CSS Custom
+  // Highlight API. This doesn't modify the contenteditable DOM, so
+  // ProseMirror's internal model, caret position, and IME composition are
+  // untouched — unlike wrapping entity text in <span>s.
+  paintInlinePIIHighlights: function (entities) {
+    if (typeof CSS === "undefined" || !CSS.highlights) return;
+
+    const input = this.getUserInputElement();
+    if (!input) {
+      this.clearInlinePIIHighlights();
+      return;
+    }
+
+    // One shared Highlight registered under the name "pii". The ::highlight(pii)
+    // rule in style.css paints it.
+    let highlight = CSS.highlights.get("pii");
+    if (!highlight) {
+      highlight = new Highlight();
+      CSS.highlights.set("pii", highlight);
+    }
+    highlight.clear();
+
+    if (!entities || entities.length === 0) return;
+
+    // Collect all text nodes under the composer with their cumulative text
+    // offset, so we can map entity positions (in innerText) back to Ranges.
+    const walker = document.createTreeWalker(input, NodeFilter.SHOW_TEXT);
+    const textNodes = [];
+    let fullText = "";
+    let node;
+    while ((node = walker.nextNode())) {
+      textNodes.push({ node, start: fullText.length });
+      fullText += node.nodeValue;
+    }
+    if (textNodes.length === 0) return;
+
+    const locateRange = (absStart, absEnd) => {
+      let startNode = null;
+      let startOffset = 0;
+      let endNode = null;
+      let endOffset = 0;
+      for (let i = 0; i < textNodes.length; i++) {
+        const { node: n, start } = textNodes[i];
+        const end = start + n.nodeValue.length;
+        if (!startNode && absStart >= start && absStart <= end) {
+          startNode = n;
+          startOffset = absStart - start;
+        }
+        if (absEnd >= start && absEnd <= end) {
+          endNode = n;
+          endOffset = absEnd - start;
+          break;
+        }
+      }
+      if (!startNode || !endNode) return null;
+      const r = document.createRange();
+      try {
+        r.setStart(startNode, startOffset);
+        r.setEnd(endNode, endOffset);
+      } catch (_) {
+        return null;
+      }
+      return r;
+    };
+
+    // Longest-first prevents a shorter entity from swallowing characters that
+    // belong to a longer one (e.g. "Dubai" inside "Dubai, United Arab Emirates").
+    const sorted = [...entities].sort((a, b) => b.text.length - a.text.length);
+    const claimed = []; // [start, end) ranges already covered
+
+    sorted.forEach((entity) => {
+      const needle = entity.text;
+      if (!needle) return;
+      const lower = fullText.toLowerCase();
+      const target = needle.toLowerCase();
+      let from = 0;
+      while (true) {
+        const idx = lower.indexOf(target, from);
+        if (idx === -1) break;
+        const endIdx = idx + needle.length;
+        const overlaps = claimed.some(
+          ([s, e]) => idx < e && endIdx > s
+        );
+        if (!overlaps) {
+          const range = locateRange(idx, endIdx);
+          if (range) {
+            highlight.add(range);
+            claimed.push([idx, endIdx]);
+          }
+        }
+        from = endIdx;
+      }
+    });
+  },
+
+  clearInlinePIIHighlights: function () {
+    if (typeof CSS === "undefined" || !CSS.highlights) return;
+    const highlight = CSS.highlights.get("pii");
+    if (highlight) highlight.clear();
   },
 
   highlightWords: async function (userMessage, entities) {
@@ -743,6 +848,9 @@ window.helper = {
       );
       addDetectButton();
     }
+
+    this.paintInlinePIIHighlights(entities);
+
     let highlightedValue = this.getUserInputText();
 
     // Create a copy of the entities array and sort the copy by the length of their text property in descending order
@@ -815,9 +923,12 @@ window.helper = {
       }px`;
     }
 
-    target.addEventListener("input", () => {
+    const onInput = () => {
       tooltip.remove();
-    });
+      this.clearInlinePIIHighlights();
+      target.removeEventListener("input", onInput);
+    };
+    target.addEventListener("input", onInput);
   },
 
   getEntitiesForSelectedText: function (selectedTexts) {
@@ -906,6 +1017,17 @@ window.helper = {
       ".pii-highlight-tooltip"
     );
     existingTooltips.forEach((existingTooltip) => existingTooltip.remove());
+
+    // Keep highlights for entities the user didn't redact — their text is
+    // still present in the composer. innerText was just reassigned so the
+    // previous Ranges are stale; defer one frame so ProseMirror's mutation
+    // observer finishes normalizing before we attach new Ranges.
+    const replacedTexts = new Set(entities.map((e) => e.text));
+    const remaining = (this.currentEntities || []).filter(
+      (e) => !replacedTexts.has(e.text)
+    );
+    this.clearInlinePIIHighlights();
+    requestAnimationFrame(() => this.paintInlinePIIHighlights(remaining));
   },
 
   markNonSelectedRegions: function (value, selectedEntities) {
