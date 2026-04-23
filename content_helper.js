@@ -837,7 +837,7 @@ window.helper = {
         const placeholder =
           localMappings.piiToPlaceholder[entity.text] || entity.entity_type;
         const regex = new RegExp(
-          `\\b${this.replacementEscapeRegExp(entity.text)}\\b`,
+          `(?<!\\w)${this.replacementEscapeRegExp(entity.text)}(?!\\w)`,
           "gi"
         );
         value = value.replace(regex, `[${placeholder}]`);
