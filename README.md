@@ -18,34 +18,40 @@ available in the options page but are not required.
 - Google Chrome with WebGPU support (Chrome 113+). WASM fallback runs if
   WebGPU is disabled, just slower.
 
-### Install
+### Install (recommended)
 
-1. Clone or download this repo.
-
-2. Fetch the Transformers.js + ONNX Runtime Web assets into `vendor/`
-   (first time only):
-
-   ```bash
-   cd vendor
-   curl -L -O https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0/dist/transformers.min.js
-   ORT=https://cdn.jsdelivr.net/npm/onnxruntime-web@1.26.0-dev.20260416-b7804b056c/dist
-   curl -L -O $ORT/ort-wasm-simd-threaded.asyncify.mjs
-   curl -L -O $ORT/ort-wasm-simd-threaded.asyncify.wasm
-   curl -L -O $ORT/ort-wasm-simd-threaded.jsep.mjs
-   curl -L -O $ORT/ort-wasm-simd-threaded.jsep.wasm
-   ```
-
-   Transformers.js 4.2.0+ is required — earlier versions don't know the
-   `openai_privacy_filter` model class.
-
+1. Download **`rescriber-v1.0.0.zip`** from the
+   [latest release](https://github.com/PEACH-Research-Lab/Rescriber_frontend_ondevice/releases/latest).
+   The zip already includes the Transformers.js and ONNX Runtime Web assets
+   under `vendor/`, so no `curl` / build step is needed.
+2. Unzip it. You'll get a `rescriber-v1.0.0/` folder.
 3. Load the extension:
    - Open `chrome://extensions/`
    - Enable **Developer mode** (top-right toggle)
-   - Click **Load unpacked** and select the repo folder
+   - Click **Load unpacked** and select the unzipped `rescriber-v1.0.0/` folder
    - Confirm **Rescriber** appears in the list
 
 See [InstallChromeExtension.md](InstallChromeExtension.md) for a walk-through
 with screenshots.
+
+### Install from source (for developers)
+
+If you're cloning the repo instead of using the release zip, the `vendor/`
+folder is empty and you'll need to fetch the runtime assets yourself
+(first time only):
+
+```bash
+cd vendor
+curl -L -O https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0/dist/transformers.min.js
+ORT=https://cdn.jsdelivr.net/npm/onnxruntime-web@1.26.0-dev.20260416-b7804b056c/dist
+curl -L -O $ORT/ort-wasm-simd-threaded.asyncify.mjs
+curl -L -O $ORT/ort-wasm-simd-threaded.asyncify.wasm
+curl -L -O $ORT/ort-wasm-simd-threaded.jsep.mjs
+curl -L -O $ORT/ort-wasm-simd-threaded.jsep.wasm
+```
+
+Transformers.js 4.2.0+ is required — earlier versions don't know the
+`openai_privacy_filter` model class.
 
 ### Use
 
