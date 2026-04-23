@@ -31,9 +31,6 @@ available in the options page but are not required.
    - Click **Load unpacked** and select the unzipped `rescriber-v1.0.0/` folder
    - Confirm **Rescriber** appears in the list
 
-See [InstallChromeExtension.md](InstallChromeExtension.md) for a walk-through
-with screenshots.
-
 ### Install from source (for developers)
 
 If you're cloning the repo instead of using the release zip, the `vendor/`
