@@ -557,7 +557,12 @@ window.helper = {
       const { getPresidioResponseDetect } = await import(
         chrome.runtime.getURL("presidio.js")
       );
-      entities = await getPresidioResponseDetect(userMessage);
+      try {
+        entities = await getPresidioResponseDetect(userMessage);
+      } catch (err) {
+        console.error("[presidio:detect] failed:", err.message);
+        entities = [];
+      }
     } else if (!this.useOnDeviceModel) {
       const { getCloudResponseDetect } = await import(
         chrome.runtime.getURL("openai.js")
@@ -687,7 +692,11 @@ window.helper = {
       const { getPresidioResponseDetect } = await import(
         chrome.runtime.getURL("presidio.js")
       );
-      await getPresidioResponseDetect(userMessage, onResultCallback);
+      try {
+        await getPresidioResponseDetect(userMessage, onResultCallback);
+      } catch (err) {
+        console.error("[presidio:detect] failed:", err.message);
+      }
     } else {
       const { getOnDeviceResponseDetect } = await import(
         chrome.runtime.getURL("ondevice.js")

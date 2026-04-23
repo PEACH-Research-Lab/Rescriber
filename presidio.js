@@ -13,11 +13,19 @@ async function callPresidio(text, scoreThreshold = 0.4) {
       },
       (response) => {
         if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
+          reject(
+            new Error(
+              `Presidio request failed: ${chrome.runtime.lastError.message}`
+            )
+          );
           return;
         }
         if (response?.error) {
-          reject(new Error(response.error));
+          reject(
+            new Error(
+              `Presidio server unreachable at ${PRESIDIO_BASE} (${response.error})`
+            )
+          );
           return;
         }
         resolve(response);
