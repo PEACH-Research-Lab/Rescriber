@@ -73,14 +73,10 @@ Open the extension's options page (right-click the toolbar icon →
 - **Privacy Filter** (default) — in-browser, no setup beyond the vendor
   download above.
 - **On-Device LLM (Ollama)** — runs a local Llama model via Ollama.
-  Requires `ollama pull llama3` and the Rescriber backend server.
+  Requires `ollama pull llama3` and running ollama as a background service.
 - **Cloud LLM (OpenAI)** — uses the OpenAI API. Paste a key in the
   options page.
 - **Presidio** — requires `python presidio_server.py` on port 5002.
-
-The Ollama and Presidio modes need the
-[Rescriber_backend](https://github.com/jigglypuff96/Rescriber_backend) repo
-running; consult that repo's README for setup.
 
 ---
 
@@ -90,3 +86,24 @@ running; consult that repo's README for setup.
 2. Delete the repo folder.
 3. If you were running the backend server, stop it (`Ctrl+C` in its terminal)
    and delete its folder.
+
+## Paper
+
+[Rescriber: Smaller-LLM-Powered User-Led Data Minimization for LLM-Based Chatbots](https://dl.acm.org/doi/10.1145/3706598.3713701)
+— Jijie Zhou, Eryue Xu, Yaoyao Wu, Tianshi Li. CHI '25.
+
+```bibtex
+@inproceedings{Zhou_2025,
+  series    = {CHI '25},
+  title     = {Rescriber: Smaller-LLM-Powered User-Led Data Minimization for LLM-Based Chatbots},
+  url       = {http://dx.doi.org/10.1145/3706598.3713701},
+  DOI       = {10.1145/3706598.3713701},
+  booktitle = {Proceedings of the 2025 CHI Conference on Human Factors in Computing Systems},
+  publisher = {ACM},
+  author    = {Zhou, Jijie and Xu, Eryue and Wu, Yaoyao and Li, Tianshi},
+  year      = {2025},
+  month     = apr,
+  pages     = {1–28},
+  collection= {CHI '25}
+}
+```
