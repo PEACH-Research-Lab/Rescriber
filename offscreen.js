@@ -9,6 +9,57 @@
 
 const MODEL_ID = "openai/privacy-filter";
 
+// Tunable operating point, loaded from chrome.storage.sync and kept in sync
+// via storage.onChanged. Transformers.js only supports "simple" and "none";
+// word-level strategies (first/average/max) are Python-transformers only.
+const VALID_AGGREGATIONS = new Set(["simple", "none"]);
+const DEFAULT_AGGREGATION = "simple";
+const DEFAULT_THRESHOLD = 0;
+
+let currentAggregation = DEFAULT_AGGREGATION;
+let currentThreshold = DEFAULT_THRESHOLD;
+
+async function loadSettings() {
+  try {
+    const { privacyFilterAggregation, privacyFilterThreshold } =
+      await chrome.storage.sync.get([
+        "privacyFilterAggregation",
+        "privacyFilterThreshold",
+      ]);
+    if (VALID_AGGREGATIONS.has(privacyFilterAggregation)) {
+      currentAggregation = privacyFilterAggregation;
+    }
+    if (
+      typeof privacyFilterThreshold === "number" &&
+      privacyFilterThreshold >= 0 &&
+      privacyFilterThreshold <= 1
+    ) {
+      currentThreshold = privacyFilterThreshold;
+    }
+    console.log(
+      `[offscreen] Settings: aggregation=${currentAggregation} threshold=${currentThreshold}`
+    );
+  } catch (e) {
+    console.warn("[offscreen] Failed to load settings; using defaults:", e);
+  }
+}
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "sync") return;
+  if (changes.privacyFilterAggregation) {
+    const next = changes.privacyFilterAggregation.newValue;
+    if (VALID_AGGREGATIONS.has(next)) currentAggregation = next;
+  }
+  if (changes.privacyFilterThreshold) {
+    const next = changes.privacyFilterThreshold.newValue;
+    if (typeof next === "number" && next >= 0 && next <= 1) {
+      currentThreshold = next;
+    }
+  }
+});
+
+loadSettings();
+
 // Map of privacy-filter labels → Rescriber taxonomy placeholders.
 // Privacy-filter outputs 8 entity_group values (entity_group comes from
 // BIOES-decoded spans with aggregation_strategy: "simple").
@@ -112,7 +163,12 @@ function mapEntities(raw) {
       text: (e.word || "").trim(),
       score: e.score,
     }))
-    .filter((e) => e.text.length > 0 && e.entity_type !== "UNKNOWN");
+    .filter(
+      (e) =>
+        e.text.length > 0 &&
+        e.entity_type !== "UNKNOWN" &&
+        (typeof e.score !== "number" || e.score >= currentThreshold)
+    );
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -132,7 +188,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     const runOnce = async () => {
       const classifier = await getPipeline();
-      const raw = await classifier(text, { aggregation_strategy: "simple" });
+      const raw = await classifier(text, {
+        aggregation_strategy: currentAggregation,
+      });
       return mapEntities(raw);
     };
 
