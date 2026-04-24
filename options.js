@@ -3,6 +3,8 @@
 const VALID_AGGREGATIONS = ["simple", "none"];
 const DEFAULT_AGGREGATION = "simple";
 const DEFAULT_THRESHOLD = 0;
+const VALID_SEGMENTATIONS = ["sentence", "whole"];
+const DEFAULT_SEGMENTATION = "whole";
 
 document.getElementById("saveButton").addEventListener("click", () => {
   const apiKey = document.getElementById("apiKey").value;
@@ -23,6 +25,11 @@ document.getElementById("saveButton").addEventListener("click", () => {
     ? Math.min(Math.max(thresholdRaw, 0), 1)
     : DEFAULT_THRESHOLD;
 
+  const segmentationRaw = document.getElementById("privacyFilterSegmentation").value;
+  const privacyFilterSegmentation = VALID_SEGMENTATIONS.includes(segmentationRaw)
+    ? segmentationRaw
+    : DEFAULT_SEGMENTATION;
+
   chrome.storage.sync.set(
     {
       openaiApiKey: apiKey,
@@ -30,6 +37,7 @@ document.getElementById("saveButton").addEventListener("click", () => {
       detectionMode,
       privacyFilterAggregation,
       privacyFilterThreshold,
+      privacyFilterSegmentation,
     },
     () => {
       alert("Settings saved.");
@@ -44,6 +52,7 @@ chrome.storage.sync.get(
     "detectionMode",
     "privacyFilterAggregation",
     "privacyFilterThreshold",
+    "privacyFilterSegmentation",
   ],
   (result) => {
     if (result.openaiApiKey) {
@@ -70,6 +79,10 @@ chrome.storage.sync.get(
       document.getElementById("privacyFilterThreshold").value = String(
         result.privacyFilterThreshold
       );
+    }
+    if (VALID_SEGMENTATIONS.includes(result.privacyFilterSegmentation)) {
+      document.getElementById("privacyFilterSegmentation").value =
+        result.privacyFilterSegmentation;
     }
     updateSections();
   }

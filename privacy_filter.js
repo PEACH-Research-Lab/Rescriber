@@ -69,12 +69,46 @@ function splitIntoSentences(text) {
   return parts.length > 0 ? parts : [text];
 }
 
+const VALID_SEGMENTATIONS = new Set(["sentence", "whole"]);
+const DEFAULT_SEGMENTATION = "whole";
+
+async function getSegmentationMode() {
+  try {
+    const { privacyFilterSegmentation } = await chrome.storage.sync.get(
+      "privacyFilterSegmentation"
+    );
+    return VALID_SEGMENTATIONS.has(privacyFilterSegmentation)
+      ? privacyFilterSegmentation
+      : DEFAULT_SEGMENTATION;
+  } catch (e) {
+    return DEFAULT_SEGMENTATION;
+  }
+}
+
 export async function getPrivacyFilterResponseDetect(
   userMessage,
   onResultCallback
 ) {
   console.log("[privacy_filter:detect] Input:", userMessage.slice(0, 200));
   const t0 = performance.now();
+
+  const segmentation = await getSegmentationMode();
+
+  if (segmentation === "whole") {
+    const response = await callPrivacyFilter(userMessage);
+    if (response.fellBackToWasm) showWebGPUFallbackToast();
+    const entities = response.results || [];
+    if (entities.length > 0 && onResultCallback) {
+      await onResultCallback([...entities]);
+    }
+    const ms = (performance.now() - t0).toFixed(0);
+    console.log(
+      `[privacy_filter:detect] Done (${ms}ms, device=${
+        response.device || "?"
+      }, mode=whole): ${entities.length} entities`
+    );
+    return entities;
+  }
 
   const sentences = splitIntoSentences(userMessage);
   console.log(
@@ -105,9 +139,11 @@ export async function getPrivacyFilterResponseDetect(
 
   const ms = (performance.now() - t0).toFixed(0);
   console.log(
-    `[privacy_filter:detect] Done (${ms}ms, device=${device || "?"}): ${
-      allEntities.length
-    } entities across ${sentences.length} sentence(s)`
+    `[privacy_filter:detect] Done (${ms}ms, device=${
+      device || "?"
+    }, mode=sentence): ${allEntities.length} entities across ${
+      sentences.length
+    } sentence(s)`
   );
 
   return allEntities;

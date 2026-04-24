@@ -85,6 +85,19 @@
         Detects: names, emails, phones, addresses, URLs, dates, account numbers, secrets.
       </p>
       <label class="input-field">
+        Segmentation:
+        <select id="privacyFilterSegmentation">
+          <option value="whole" selected>Whole text (scan the full input in one pass) — default</option>
+          <option value="sentence">Per-sentence (split text, scan each sentence, aggregate)</option>
+        </select>
+      </label>
+      <p style="font-size: 0.85em; color: #666;">
+        Per-sentence keeps each model call short (useful when inputs are long
+        or the model's context window is limiting); whole-text gives the model
+        full surrounding context, which can improve recall on entities that
+        span or depend on neighboring sentences.
+      </p>
+      <label class="input-field">
         Aggregation strategy:
         <select id="privacyFilterAggregation">
           <option value="simple" selected>simple (merge adjacent same-type tokens into spans) — default</option>
