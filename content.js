@@ -261,9 +261,13 @@ function isContentFullyLoaded(target) {
 function areAfterElementsLoaded(target) {
   const elements = target.querySelectorAll("*");
   for (let element of elements) {
+    // KaTeX-rendered math legitimately uses `::after` pseudo-elements for
+    // typesetting (struts, accents, spacing). Ignore anything inside a
+    // `.katex` container, otherwise messages with math never appear "loaded"
+    // and the rAF loop in checkAndReplace spins forever.
+    if (element.closest(".katex")) continue;
     const afterContent = window.getComputedStyle(element, "::after").content;
     if (afterContent && afterContent !== "none" && afterContent !== '""') {
-      console.log("Element with loading indicator found:", element);
       return false;
     }
   }
@@ -275,10 +279,8 @@ async function checkAndReplace(target) {
 
   const waitForContentLoad = () => {
     if (!isContentFullyLoaded(target)) {
-      console.log("Waiting for content to load...");
       requestAnimationFrame(waitForContentLoad);
     } else {
-      console.log("Content loaded, performing replace:", target);
       window.helper.checkMessageRenderedAndReplace(target);
     }
   };
