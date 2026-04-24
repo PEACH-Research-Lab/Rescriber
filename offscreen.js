@@ -7,58 +7,22 @@
 // retry storm on every call. The fallback decision is not persisted across
 // sessions, so a browser/extension reload will re-attempt WebGPU.
 
+console.log("[offscreen] script loading");
+
 const MODEL_ID = "openai/privacy-filter";
 
-// Tunable operating point, loaded from chrome.storage.sync and kept in sync
-// via storage.onChanged. Transformers.js only supports "simple" and "none";
-// word-level strategies (first/average/max) are Python-transformers only.
+// Tunable operating point. Defaults are applied at module load; real values
+// come from chrome.storage.sync via loadSettings() and storage.onChanged,
+// both wired up below in a try/catch so a storage-API failure can never
+// prevent the message listener (registered first) from coming online.
+// Transformers.js only supports "simple" and "none"; word-level strategies
+// (first/average/max) are Python-transformers only.
 const VALID_AGGREGATIONS = new Set(["simple", "none"]);
 const DEFAULT_AGGREGATION = "simple";
 const DEFAULT_THRESHOLD = 0;
 
 let currentAggregation = DEFAULT_AGGREGATION;
 let currentThreshold = DEFAULT_THRESHOLD;
-
-async function loadSettings() {
-  try {
-    const { privacyFilterAggregation, privacyFilterThreshold } =
-      await chrome.storage.sync.get([
-        "privacyFilterAggregation",
-        "privacyFilterThreshold",
-      ]);
-    if (VALID_AGGREGATIONS.has(privacyFilterAggregation)) {
-      currentAggregation = privacyFilterAggregation;
-    }
-    if (
-      typeof privacyFilterThreshold === "number" &&
-      privacyFilterThreshold >= 0 &&
-      privacyFilterThreshold <= 1
-    ) {
-      currentThreshold = privacyFilterThreshold;
-    }
-    console.log(
-      `[offscreen] Settings: aggregation=${currentAggregation} threshold=${currentThreshold}`
-    );
-  } catch (e) {
-    console.warn("[offscreen] Failed to load settings; using defaults:", e);
-  }
-}
-
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area !== "sync") return;
-  if (changes.privacyFilterAggregation) {
-    const next = changes.privacyFilterAggregation.newValue;
-    if (VALID_AGGREGATIONS.has(next)) currentAggregation = next;
-  }
-  if (changes.privacyFilterThreshold) {
-    const next = changes.privacyFilterThreshold.newValue;
-    if (typeof next === "number" && next >= 0 && next <= 1) {
-      currentThreshold = next;
-    }
-  }
-});
-
-loadSettings();
 
 // Map of privacy-filter labels → Rescriber taxonomy placeholders.
 // Privacy-filter outputs 8 entity_group values (entity_group comes from
@@ -265,6 +229,55 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   return true; // async response
 });
+
+console.log("[offscreen] message listener registered");
+
+// Settings wiring runs AFTER the message listener is registered, so even if
+// chrome.storage is unavailable or throws, the listener is already in place
+// and the doc can still respond to privacy_filter:run requests.
+async function loadSettings() {
+  try {
+    const { privacyFilterAggregation, privacyFilterThreshold } =
+      await chrome.storage.sync.get([
+        "privacyFilterAggregation",
+        "privacyFilterThreshold",
+      ]);
+    if (VALID_AGGREGATIONS.has(privacyFilterAggregation)) {
+      currentAggregation = privacyFilterAggregation;
+    }
+    if (
+      typeof privacyFilterThreshold === "number" &&
+      privacyFilterThreshold >= 0 &&
+      privacyFilterThreshold <= 1
+    ) {
+      currentThreshold = privacyFilterThreshold;
+    }
+    console.log(
+      `[offscreen] Settings: aggregation=${currentAggregation} threshold=${currentThreshold}`
+    );
+  } catch (e) {
+    console.warn("[offscreen] Failed to load settings; using defaults:", e);
+  }
+}
+
+try {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "sync") return;
+    if (changes.privacyFilterAggregation) {
+      const next = changes.privacyFilterAggregation.newValue;
+      if (VALID_AGGREGATIONS.has(next)) currentAggregation = next;
+    }
+    if (changes.privacyFilterThreshold) {
+      const next = changes.privacyFilterThreshold.newValue;
+      if (typeof next === "number" && next >= 0 && next <= 1) {
+        currentThreshold = next;
+      }
+    }
+  });
+  loadSettings();
+} catch (e) {
+  console.warn("[offscreen] Settings wiring failed; using defaults:", e);
+}
 
 // Preload the pipeline so first detection has minimal latency.
 getPipeline().catch((err) => {

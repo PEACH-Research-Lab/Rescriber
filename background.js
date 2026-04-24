@@ -117,6 +117,22 @@ async function ensureOffscreenDocument() {
   }
 }
 
+// chrome.offscreen.createDocument resolves when the document exists, not when
+// its script has finished evaluating and registered its onMessage listener.
+// Sending to the doc in that window throws "Receiving end does not exist".
+// Retry with a short backoff so the first request after a cold start works.
+async function sendToOffscreen(msg, retries = 5) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await chrome.runtime.sendMessage(msg);
+    } catch (err) {
+      const noReceiver = /Receiving end does not exist/.test(err?.message || "");
+      if (!noReceiver || i === retries - 1) throw err;
+      await new Promise((r) => setTimeout(r, 50 * (i + 1)));
+    }
+  }
+}
+
 // --- Non-streaming via messages (kept for simple calls) ---
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === "privacy_filter:warmup") {
@@ -141,7 +157,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     (async () => {
       try {
         await ensureOffscreenDocument();
-        const response = await chrome.runtime.sendMessage({
+        const response = await sendToOffscreen({
           type: "privacy_filter:run",
           text: request.text,
         });
