@@ -16,6 +16,12 @@ window.helper = {
     tempPiiToPlaceholder: {},
   },
   tempEntityCounts: {},
+  // In-memory only — used while the URL has no /c/<id> (e.g. ChatGPT
+  // temporary mode). Mirrors the per-conversation actionHistory and
+  // abstractMappings shapes so the same render-time logic can run without
+  // ever writing to chrome.storage.
+  tempActionHistory: [],
+  tempAbstractMappings: {},
   prolificId: "",
   replaceCount: 0,
   abstractCount: 0,
@@ -150,6 +156,8 @@ window.helper = {
         tempPlaceholderToPii: {},
       };
       this.tempEntityCounts = {};
+      this.tempActionHistory = [];
+      this.tempAbstractMappings = {};
 
       console.log("Mappings and counts loaded from storage.");
     } catch (error) {
@@ -536,6 +544,26 @@ window.helper = {
 
         await this.saveMappingsToStorage(activeConversationId);
 
+        // Flush in-memory action history / abstract mappings that were
+        // recorded under "no-url" before the conversation got its real id.
+        if (this.tempActionHistory.length > 0) {
+          const data = await this.getFromStorage(["actionHistory"]);
+          const history = data.actionHistory || [];
+          for (const entry of this.tempActionHistory) {
+            history.push({ ...entry, conversationId: activeConversationId });
+          }
+          await this.setToStorage({ actionHistory: history });
+        }
+        if (Object.keys(this.tempAbstractMappings).length > 0) {
+          const absData = await this.getFromStorage(["abstractMappings"]);
+          const allMappings = absData.abstractMappings || {};
+          allMappings[activeConversationId] = {
+            ...allMappings[activeConversationId],
+            ...this.tempAbstractMappings,
+          };
+          await this.setToStorage({ abstractMappings: allMappings });
+        }
+
         console.log(
           "Mappings and counts saved for conversation:",
           activeConversationId
@@ -544,6 +572,8 @@ window.helper = {
         this.tempMappings.tempPiiToPlaceholder = {};
         this.tempMappings.tempPlaceholderToPii = {};
         this.tempEntityCounts = {};
+        this.tempActionHistory = [];
+        this.tempAbstractMappings = {};
       } catch (error) {
         console.error("Error updating conversation PII to cloud:", error);
       }
@@ -1188,8 +1218,10 @@ window.helper = {
   async logAbstractAction(pairs) {
     try {
       const conversationId = this.getActiveConversationId() || "no-url";
-      const data = await this.getFromStorage(["actionHistory"]);
-      const history = data.actionHistory || [];
+      const isNoUrl = conversationId === "no-url";
+      const history = isNoUrl
+        ? this.tempActionHistory
+        : (await this.getFromStorage(["actionHistory"])).actionHistory || [];
 
       const entries = pairs
         .map(({ protected: original }) => {
@@ -1210,7 +1242,9 @@ window.helper = {
           count: entries.length,
           piiTexts: entries.map((e) => e.piiValue),
         });
-        await this.setToStorage({ actionHistory: history });
+        if (!isNoUrl) {
+          await this.setToStorage({ actionHistory: history });
+        }
         console.log(
           `Dashboard: logged ${entries.length} abstract action(s) immediately`
         );
@@ -1226,9 +1260,17 @@ window.helper = {
   async saveAbstractMappings(pairs) {
     try {
       const conversationId = this.getActiveConversationId() || "no-url";
-      const data = await this.getFromStorage(["abstractMappings"]);
-      const allMappings = data.abstractMappings || {};
-      const convMappings = allMappings[conversationId] || {};
+      const isNoUrl = conversationId === "no-url";
+
+      let convMappings;
+      let allMappings;
+      if (isNoUrl) {
+        convMappings = this.tempAbstractMappings;
+      } else {
+        const data = await this.getFromStorage(["abstractMappings"]);
+        allMappings = data.abstractMappings || {};
+        convMappings = allMappings[conversationId] || {};
+      }
 
       for (const { protected: original, abstracted } of pairs) {
         if (abstracted && original) {
@@ -1240,8 +1282,10 @@ window.helper = {
         }
       }
 
-      allMappings[conversationId] = convMappings;
-      await this.setToStorage({ abstractMappings: allMappings });
+      if (!isNoUrl) {
+        allMappings[conversationId] = convMappings;
+        await this.setToStorage({ abstractMappings: allMappings });
+      }
     } catch (error) {
       console.error("Error saving abstract mappings:", error);
     }
@@ -1392,18 +1436,24 @@ window.helper = {
     }
 
     const activeConversationId = this.getActiveConversationId();
-    if (activeConversationId === "no-url") {
-      console.log("No active conversation URL detected.");
-      return;
-    }
+    const isNoUrl = activeConversationId === "no-url";
 
     try {
-      // Get mapping from cloud storage
-      const data = await this.getFromStorage(null);
-      const piiToPlaceholder =
-        data.piiToPlaceholder?.[activeConversationId] || {};
-      const placeholderToPii =
-        data.placeholderToPii?.[activeConversationId] || {};
+      // In no-url mode (e.g. ChatGPT temporary chat) the URL never gets a
+      // /c/<id>, so persisted mappings can't be keyed. Use the in-memory
+      // tempMappings + tempActionHistory the same renderer logic would have
+      // pulled from storage in regular mode — context restore still works
+      // for the lifetime of the page, and nothing is written to storage.
+      let piiToPlaceholder;
+      let placeholderToPii;
+      if (isNoUrl) {
+        piiToPlaceholder = this.tempMappings.tempPiiToPlaceholder || {};
+        placeholderToPii = this.tempMappings.tempPlaceholderToPii || {};
+      } else {
+        const data = await this.getFromStorage(null);
+        piiToPlaceholder = data.piiToPlaceholder?.[activeConversationId] || {};
+        placeholderToPii = data.placeholderToPii?.[activeConversationId] || {};
+      }
 
       // For user messages, detect confirmed replace actions
       // from the actual sent prompt before the display-replacement runs
@@ -1421,9 +1471,9 @@ window.helper = {
       // placeholder — detected-but-never-redacted values stay in
       // placeholderToPii, but were never "replaced back" on the wire,
       // so painting over them would falsely imply the user had protected them.
-      const { actionHistory = [] } = await this.getFromStorage([
-        "actionHistory",
-      ]);
+      const actionHistory = isNoUrl
+        ? this.tempActionHistory
+        : (await this.getFromStorage(["actionHistory"])).actionHistory || [];
       const redactedPIIs = new Set();
       for (const entry of actionHistory) {
         if (
@@ -1466,10 +1516,12 @@ window.helper = {
     element.setAttribute("data-actions-inferred", "true");
 
     const text = element.textContent || "";
+    const isNoUrl = conversationId === "no-url";
 
     try {
-      const data = await this.getFromStorage(["actionHistory"]);
-      const history = data.actionHistory || [];
+      const history = isNoUrl
+        ? this.tempActionHistory
+        : (await this.getFromStorage(["actionHistory"])).actionHistory || [];
       let changed = false;
 
       // Build set of already-logged replace PII texts for this conversation
@@ -1516,7 +1568,7 @@ window.helper = {
         );
       }
 
-      if (changed) {
+      if (changed && !isNoUrl) {
         await this.setToStorage({ actionHistory: history });
       }
     } catch (error) {
