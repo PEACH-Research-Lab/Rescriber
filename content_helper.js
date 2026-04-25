@@ -1460,11 +1460,21 @@ window.helper = {
       const isUserMessage =
         element.getAttribute("data-message-author-role") === "user";
       if (isUserMessage) {
+        const firstRender = !element.hasAttribute("data-actions-inferred");
         await this.inferActionsFromRenderedMessage(
           element,
           placeholderToPii,
           activeConversationId
         );
+        // The composition has been finalized and sent, so the pre-redact
+        // snapshot saved by replaceWords/handleAbstractResponse is stale —
+        // reverting now would paste the old text into a now-empty composer.
+        // Drop it and force any visible revert button back to disabled.
+        if (firstRender) {
+          delete this.previousStatesByConversation[activeConversationId];
+          const revertBtn = document.getElementById("revert-btn");
+          if (revertBtn) revertBtn.disabled = true;
+        }
       }
 
       // Only highlight PII the user actually redacted and sent as a
