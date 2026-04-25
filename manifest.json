@@ -9,8 +9,14 @@
     "48": "images/48.png",
     "128": "images/128.png"
   },
-  "permissions": ["activeTab", "storage", "scripting", "offscreen", "clipboardRead", "clipboardWrite"],
-  "host_permissions": ["<all_urls>"],
+  "permissions": ["storage", "offscreen", "clipboardRead", "clipboardWrite"],
+  "host_permissions": [
+    "https://api.openai.com/*",
+    "https://huggingface.co/*",
+    "https://*.huggingface.co/*",
+    "http://localhost:11434/*",
+    "http://localhost:5002/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },

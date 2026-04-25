@@ -1,21 +1,18 @@
 import { dlog } from "./debug.js";
 
+// API key lives in chrome.storage.local — chrome.storage.sync would replicate
+// the secret across every Chrome instance signed into the user's Google
+// account. options.js migrates any pre-existing key from sync→local on load,
+// but read sync as a fallback for users whose options page hasn't run yet.
 async function getApiKey() {
-  const { openaiApiKey } = await new Promise((resolve, reject) => {
-    chrome.storage.sync.get(["openaiApiKey"], (result) => {
-      if (chrome.runtime.lastError) {
-        reject(chrome.runtime.lastError);
-      } else {
-        resolve(result);
-      }
-    });
-  });
+  const localResult = await chrome.storage.local.get(["openaiApiKey"]);
+  if (localResult.openaiApiKey) return localResult.openaiApiKey;
 
-  if (!openaiApiKey) {
-    console.error("No API key available");
-    return [];
-  }
-  return openaiApiKey;
+  const syncResult = await chrome.storage.sync.get(["openaiApiKey"]);
+  if (syncResult.openaiApiKey) return syncResult.openaiApiKey;
+
+  console.error("No API key available");
+  return [];
 }
 export async function getCloudResponseDetect(userMessageDetect) {
   const url = "https://api.openai.com/v1/chat/completions";

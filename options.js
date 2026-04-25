@@ -31,9 +31,12 @@ document.getElementById("saveButton").addEventListener("click", () => {
     ? segmentationRaw
     : DEFAULT_SEGMENTATION;
 
+  // API key goes to storage.local so it isn't replicated via Google account
+  // sync. Other settings stay in sync — they're not secrets and users expect
+  // them to follow them across devices.
+  chrome.storage.local.set({ openaiApiKey: apiKey });
   chrome.storage.sync.set(
     {
-      openaiApiKey: apiKey,
       ollamaModel,
       detectionMode,
       privacyFilterAggregation,
@@ -47,50 +50,61 @@ document.getElementById("saveButton").addEventListener("click", () => {
   );
 });
 
-chrome.storage.sync.get(
-  [
-    "openaiApiKey",
+(async () => {
+  // One-shot migration: any prior install stored the API key in storage.sync.
+  // Move it to storage.local on first load of the new options page, then
+  // remove the sync copy.
+  const localKey = await chrome.storage.local.get(["openaiApiKey"]);
+  if (!localKey.openaiApiKey) {
+    const syncKey = await chrome.storage.sync.get(["openaiApiKey"]);
+    if (syncKey.openaiApiKey) {
+      await chrome.storage.local.set({ openaiApiKey: syncKey.openaiApiKey });
+      await chrome.storage.sync.remove("openaiApiKey");
+    }
+  }
+
+  const localData = await chrome.storage.local.get(["openaiApiKey"]);
+  const syncData = await chrome.storage.sync.get([
     "ollamaModel",
     "detectionMode",
     "privacyFilterAggregation",
     "privacyFilterThreshold",
     "privacyFilterSegmentation",
     "debugLogging",
-  ],
-  (result) => {
-    if (result.openaiApiKey) {
-      document.getElementById("apiKey").value = result.openaiApiKey;
-    }
-    if (result.ollamaModel) {
-      document.getElementById("ollamaModel").value = result.ollamaModel;
-    }
-    if (result.detectionMode) {
-      const radio = document.querySelector(
-        `input[name="detectionMode"][value="${result.detectionMode}"]`
-      );
-      if (radio) radio.checked = true;
-    }
-    if (VALID_AGGREGATIONS.includes(result.privacyFilterAggregation)) {
-      document.getElementById("privacyFilterAggregation").value =
-        result.privacyFilterAggregation;
-    }
-    if (
-      typeof result.privacyFilterThreshold === "number" &&
-      result.privacyFilterThreshold >= 0 &&
-      result.privacyFilterThreshold <= 1
-    ) {
-      document.getElementById("privacyFilterThreshold").value = String(
-        result.privacyFilterThreshold
-      );
-    }
-    if (VALID_SEGMENTATIONS.includes(result.privacyFilterSegmentation)) {
-      document.getElementById("privacyFilterSegmentation").value =
-        result.privacyFilterSegmentation;
-    }
-    document.getElementById("debugLogging").checked = !!result.debugLogging;
-    updateSections();
+  ]);
+
+  if (localData.openaiApiKey) {
+    document.getElementById("apiKey").value = localData.openaiApiKey;
   }
-);
+  if (syncData.ollamaModel) {
+    document.getElementById("ollamaModel").value = syncData.ollamaModel;
+  }
+  if (syncData.detectionMode) {
+    const radio = document.querySelector(
+      `input[name="detectionMode"][value="${syncData.detectionMode}"]`
+    );
+    if (radio) radio.checked = true;
+  }
+  if (VALID_AGGREGATIONS.includes(syncData.privacyFilterAggregation)) {
+    document.getElementById("privacyFilterAggregation").value =
+      syncData.privacyFilterAggregation;
+  }
+  if (
+    typeof syncData.privacyFilterThreshold === "number" &&
+    syncData.privacyFilterThreshold >= 0 &&
+    syncData.privacyFilterThreshold <= 1
+  ) {
+    document.getElementById("privacyFilterThreshold").value = String(
+      syncData.privacyFilterThreshold
+    );
+  }
+  if (VALID_SEGMENTATIONS.includes(syncData.privacyFilterSegmentation)) {
+    document.getElementById("privacyFilterSegmentation").value =
+      syncData.privacyFilterSegmentation;
+  }
+  document.getElementById("debugLogging").checked = !!syncData.debugLogging;
+  updateSections();
+})();
 
 // Show/hide sections based on detection mode
 function updateSections() {

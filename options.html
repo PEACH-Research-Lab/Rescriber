@@ -57,7 +57,17 @@
   <body>
     <h1>Extension Options</h1>
     <label class="input-field" for="apiKey">OpenAI API key:</label>
-    <input type="text" id="apiKey" class="input-field" />
+    <input
+      type="password"
+      id="apiKey"
+      class="input-field"
+      autocomplete="off"
+      spellcheck="false"
+    />
+    <p style="font-size: 0.85em; color: #666;">
+      Stored locally in this browser only (<code>chrome.storage.local</code>).
+      Never synced to your Google account.
+    </p>
 
     <hr style="margin: 20px 0" />
 
