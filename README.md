@@ -21,7 +21,7 @@ available in the options page but are not required.
 ### Install (recommended)
 
 1. Download **`rescriber-v1.0.0.zip`** from the
-   [latest release](https://github.com/PEACH-Research-Lab/Rescriber_frontend_ondevice/releases/latest).
+   [latest release](https://github.com/PEACH-Research-Lab/Rescriber/releases/latest).
    The zip already includes the Transformers.js and ONNX Runtime Web assets
    under `vendor/`, so no `curl` / build step is needed.
 2. Unzip it. You'll get a `rescriber-v1.0.0/` folder.
@@ -94,7 +94,7 @@ Open the extension's options page (right-click the toolbar icon →
 
 The full policy is at
 [docs/privacy.html](docs/privacy.html), served via GitHub Pages at
-https://peach-research-lab.github.io/Rescriber_frontend_ondevice/privacy.html.
+https://peach-research-lab.github.io/Rescriber/privacy.html.
 
 ## Licenses
 
