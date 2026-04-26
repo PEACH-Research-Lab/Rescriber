@@ -89,6 +89,12 @@ Prompts and detected PII are processed locally and never sent over the network.
 
 `chrome://extensions` → locate **Rescriber** → **Remove**.
 
+## Privacy policy
+
+The full policy is at
+[docs/privacy.html](docs/privacy.html), served via GitHub Pages at
+https://peach-research-lab.github.io/Rescriber_frontend_ondevice/privacy.html.
+
 ## Licenses
 
 Rescriber's own source is MIT — see [LICENSE](LICENSE). The bundled
