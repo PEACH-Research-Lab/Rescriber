@@ -25,7 +25,8 @@ keeps only the Privacy Filter detection mode; the multi-backend variants
 
 ### Install (recommended)
 
-1. Download the latest `rescriber-v1.0.1.zip` release.
+1. Download the latest `rescriber-v1.0.1.zip` from the
+   [Releases page](https://github.com/PEACH-Research-Lab/Rescriber/releases/latest).
 2. Unzip it.
 3. Open `chrome://extensions/`, enable **Developer mode**, click
    **Load unpacked**, and select the unzipped folder.
@@ -93,7 +94,7 @@ Prompts and detected PII are processed locally and never sent over the network.
 
 The full policy is at
 [docs/privacy.html](docs/privacy.html), served via GitHub Pages at
-https://peach-research-lab.github.io/Rescriber_frontend_ondevice/privacy.html.
+https://peach-research-lab.github.io/Rescriber/privacy.html.
 
 ## Licenses
 
